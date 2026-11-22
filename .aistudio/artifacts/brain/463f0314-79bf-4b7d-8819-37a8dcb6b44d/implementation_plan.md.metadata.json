@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementation plan for integrating a Roblox Script Workshop (Script, LocalScript, ModuleScript, Service folders, Events & Values, and live Luau sandbox driving the 3D rig, FX, and Console) plus Rojo export, local workspace sync, and dual PAT/OAuth GitHub Repository Push into StudForge 3D.",
+  "updatedAt":  "2026-11-22T08:25:37.107063238Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

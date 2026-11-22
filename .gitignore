@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+*.log
+.env*
+!.env.example
+# Local AI Studio export archive and build output
+studforge-3d.zip
+dist/

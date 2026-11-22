@@ -1,0 +1,6 @@
+{
+  "name": "StudForge 3D",
+  "description": "Three.js 3D modeling engine and Roblox Studio exporter supporting .rbxmx, .glb, .obj, and Luau script generation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
