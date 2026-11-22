@@ -25,7 +25,7 @@ export type PartShape =
 
 export type TransformMode = 'select' | 'translate' | 'rotate' | 'scale';
 
-export type StudioWorkspaceMode = 'model' | 'animate' | 'scripts';
+export type StudioWorkspaceMode = 'model' | 'animate' | 'scripts' | 'map' | 'workspace';
 
 export type RobloxServiceLocation =
   | 'WorkspaceModel'

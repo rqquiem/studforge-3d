@@ -577,5 +577,268 @@ test('generateRojoProjectBundle generates valid Rojo 7 project JSON, Luau script
   );
 });
 
+test('Puddle Crab preset has pure 3D rig anatomy, Idle + Scuttle Walk animations, zero FX/scripts, and exports to RBXMX', () => {
+  assert.equal(MODEL_PRESETS[0].id, 'jade-dragon');
+  const crab = MODEL_PRESETS.find((p) => p.id === 'puddle-crab');
+  assert.ok(crab, 'puddle-crab preset should exist in MODEL_PRESETS');
+  assert.equal(crab.label, 'Puddle Crab');
+  assert.equal(crab.model.name, 'PuddleCrab');
+  assert.deepEqual(crab.model.scripts, [], 'Puddle Crab must have empty scripts array (pure 3D rig)');
+
+  const partNames = new Set(crab.model.parts.map((p) => p.name));
+  const expectedAnatomy = [
+    'CarapaceCore',
+    'CarapaceUpperCap',
+    'UnderbellyPlate',
+    'MouthFrownTop',
+    'EyeStalk_L',
+    'EyeStalk_R',
+    'ArmShoulder_L',
+    'ClawWrist_L',
+    'PincerUpper_L',
+    'PincerLower_L',
+    'ArmShoulder_R',
+    'ClawWrist_R',
+    'PincerUpper_R',
+    'PincerLower_R',
+    'LegHip_FL',
+    'LegShin_FL',
+    'LegTip_FL',
+    'LegHip_MR',
+    'LegShin_MR',
+    'LegTip_MR',
+    'LegHip_BL',
+    'LegShin_BL',
+    'LegTip_BL',
+    'LegHip_BR',
+    'LegShin_BR',
+    'LegTip_BR',
+  ];
+  for (const name of expectedAnatomy) {
+    assert.ok(partNames.has(name), `Puddle Crab should include ${name}`);
+  }
+
+  for (const part of crab.model.parts) {
+    assert.equal(part.effects?.length ?? 0, 0, `${part.name} must not contain FX`);
+    assert.equal(part.sounds?.length ?? 0, 0, `${part.name} must not contain sounds`);
+  }
+
+  const animations = crab.model.animations ?? [];
+  assert.deepEqual(
+    animations.map((c) => c.name),
+    ['Idle', 'Scuttle Walk']
+  );
+  for (const clip of animations) {
+    assert.equal(clip.markers?.length ?? 0, 0, `${clip.name} must have no FX/sound markers`);
+  }
+
+  const report = validateModelForRoblox(crab.model);
+  assert.equal(report.effectCount, 0);
+  assert.equal(report.soundCount, 0);
+  assert.equal(report.markerCount, 0);
+  assert.equal(report.scriptCount, 0);
+  assert.equal(report.rbxmxReady, true);
+  assert.ok(report.boundingSizeStuds[1] > 1, 'Puddle Crab height must exceed 1 stud');
+
+  const xml = generateRbxmx(crab.model, { scaleMode: 'studs', centerAtOrigin: true });
+  assert.ok(xml.includes('<string name="Name">Idle</string>'));
+  assert.ok(xml.includes('<string name="Name">Scuttle Walk</string>'));
+  assert.ok(xml.includes('<Item class="Motor6D"'));
+});
+
+test('Puddle Snail preset has pure 3D rig anatomy, Idle + Glide Crawl animations, zero FX/scripts, and exports to RBXMX', () => {
+  assert.equal(MODEL_PRESETS[0].id, 'jade-dragon');
+  const snail = MODEL_PRESETS.find((p) => p.id === 'puddle-snail');
+  assert.ok(snail, 'puddle-snail preset should exist in MODEL_PRESETS');
+  assert.equal(snail.label, 'Puddle Snail');
+  assert.equal(snail.model.name, 'PuddleSnail');
+  assert.deepEqual(snail.model.scripts, [], 'Puddle Snail must have empty scripts array (pure 3D rig)');
+
+  const partNames = new Set(snail.model.parts.map((p) => p.name));
+  const expectedAnatomy = [
+    'BodyFootCore',
+    'TailTip',
+    'NeckSegment',
+    'HeadCube',
+    'EyeStalk_L',
+    'EyeTip_L',
+    'EyeStalk_R',
+    'EyeTip_R',
+    'Feeler_L',
+    'Feeler_R',
+    'ShellBase',
+    'ShellTopCap',
+    'ShellFrontLip',
+    'ShellWhorlDrum_L',
+    'ShellWhorlDrum_R',
+    'ShellMoss_FrontTop',
+  ];
+  for (const name of expectedAnatomy) {
+    assert.ok(partNames.has(name), `Puddle Snail should include ${name}`);
+  }
+
+  for (const part of snail.model.parts) {
+    assert.equal(part.effects?.length ?? 0, 0, `${part.name} must not contain FX`);
+    assert.equal(part.sounds?.length ?? 0, 0, `${part.name} must not contain sounds`);
+  }
+
+  const animations = snail.model.animations ?? [];
+  assert.deepEqual(
+    animations.map((c) => c.name),
+    ['Idle', 'Glide Crawl']
+  );
+  for (const clip of animations) {
+    assert.equal(clip.markers?.length ?? 0, 0, `${clip.name} must have no FX/sound markers`);
+  }
+
+  const report = validateModelForRoblox(snail.model);
+  assert.equal(report.effectCount, 0);
+  assert.equal(report.soundCount, 0);
+  assert.equal(report.markerCount, 0);
+  assert.equal(report.scriptCount, 0);
+  assert.equal(report.rbxmxReady, true);
+  assert.ok(report.boundingSizeStuds[1] > 1, 'Puddle Snail height must exceed 1 stud');
+
+  const xml = generateRbxmx(snail.model, { scaleMode: 'studs', centerAtOrigin: true });
+  assert.ok(xml.includes('<string name="Name">Idle</string>'));
+  assert.ok(xml.includes('<string name="Name">Glide Crawl</string>'));
+  assert.ok(xml.includes('<Item class="Motor6D"'));
+});
+
+test('Soggy Tadpole preset has pure 3D rig anatomy, Idle + Swim Wiggle animations, zero FX/scripts, and exports to RBXMX', () => {
+  assert.equal(MODEL_PRESETS[0].id, 'jade-dragon');
+  const tadpole = MODEL_PRESETS.find((p) => p.id === 'soggy-tadpole');
+  assert.ok(tadpole, 'soggy-tadpole preset should exist in MODEL_PRESETS');
+  assert.equal(tadpole.label, 'Soggy Tadpole');
+  assert.equal(tadpole.model.name, 'SoggyTadpole');
+  assert.deepEqual(tadpole.model.scripts, [], 'Soggy Tadpole must have empty scripts array (pure 3D rig)');
+
+  const partNames = new Set(tadpole.model.parts.map((p) => p.name));
+  const expectedAnatomy = [
+    'BodyCore',
+    'BodyTopCap',
+    'SnoutBlock',
+    'UnderbellyPlate',
+    'LowerJawLip',
+    'EyeBase_L',
+    'EyeGlint_L',
+    'EyeBase_R',
+    'EyeGlint_R',
+    'DewDrop_TopL',
+    'DewDrop_TopR',
+    'DewDrop_CheekL',
+    'DewDrop_CheekR',
+    'FrontLimb_L',
+    'FrontWeb_L',
+    'FrontLimb_R',
+    'FrontWeb_R',
+    'HindLimb_L',
+    'HindWeb_L',
+    'HindLimb_R',
+    'HindWeb_R',
+    'TailBase',
+    'TailMid',
+    'TailTip',
+    'TailMidFinEdge',
+  ];
+  for (const name of expectedAnatomy) {
+    assert.ok(partNames.has(name), `Soggy Tadpole should include ${name}`);
+  }
+
+  for (const part of tadpole.model.parts) {
+    assert.equal(part.effects?.length ?? 0, 0, `${part.name} must not contain FX`);
+    assert.equal(part.sounds?.length ?? 0, 0, `${part.name} must not contain sounds`);
+  }
+
+  const animations = tadpole.model.animations ?? [];
+  assert.deepEqual(
+    animations.map((c) => c.name),
+    ['Idle', 'Swim Wiggle']
+  );
+  for (const clip of animations) {
+    assert.equal(clip.markers?.length ?? 0, 0, `${clip.name} must have no FX/sound markers`);
+  }
+
+  const report = validateModelForRoblox(tadpole.model);
+  assert.equal(report.effectCount, 0);
+  assert.equal(report.soundCount, 0);
+  assert.equal(report.markerCount, 0);
+  assert.equal(report.scriptCount, 0);
+  assert.equal(report.rbxmxReady, true);
+  assert.ok(report.boundingSizeStuds[1] > 1, 'Soggy Tadpole height must exceed 1 stud');
+
+  const xml = generateRbxmx(tadpole.model, { scaleMode: 'studs', centerAtOrigin: true });
+  assert.ok(xml.includes('<string name="Name">Idle</string>'));
+  assert.ok(xml.includes('<string name="Name">Swim Wiggle</string>'));
+  assert.ok(xml.includes('<Item class="Motor6D"'));
+});
+
+test('Bubble Guppy preset has pure 3D rig anatomy, Idle + Bubble Swim animations, zero FX/scripts, and exports to RBXMX', () => {
+  assert.equal(MODEL_PRESETS[0].id, 'jade-dragon');
+  const guppy = MODEL_PRESETS.find((p) => p.id === 'bubble-guppy');
+  assert.ok(guppy, 'bubble-guppy preset should exist in MODEL_PRESETS');
+  assert.equal(guppy.label, 'Bubble Guppy');
+  assert.equal(guppy.model.name, 'BubbleGuppy');
+  assert.deepEqual(guppy.model.scripts, [], 'Bubble Guppy must have empty scripts array (pure 3D rig)');
+
+  const partNames = new Set(guppy.model.parts.map((p) => p.name));
+  const expectedAnatomy = [
+    'BodyCore',
+    'BodyTopCap',
+    'CheekPuff_L',
+    'CheekPuff_R',
+    'MouthRingHub',
+    'MouthCavity',
+    'EyeBase_L',
+    'EyeGlint_L',
+    'EyeBase_R',
+    'EyeGlint_R',
+    'DorsalFinBase',
+    'DorsalFinCrest',
+    'PectoralFin_L',
+    'PectoralFin_R',
+    'PelvicFin_L',
+    'PelvicFin_R',
+    'TailPeduncle',
+    'AnalFin',
+    'TailFanHub',
+    'TailUpperLobeInner',
+    'TailUpperLobeTip',
+    'TailLowerLobeInner',
+    'TailLowerLobeTip',
+    'BubbleCube_Mouth',
+  ];
+  for (const name of expectedAnatomy) {
+    assert.ok(partNames.has(name), `Bubble Guppy should include ${name}`);
+  }
+
+  for (const part of guppy.model.parts) {
+    assert.equal(part.effects?.length ?? 0, 0, `${part.name} must not contain FX`);
+    assert.equal(part.sounds?.length ?? 0, 0, `${part.name} must not contain sounds`);
+  }
+
+  const animations = guppy.model.animations ?? [];
+  assert.deepEqual(
+    animations.map((c) => c.name),
+    ['Idle', 'Bubble Swim']
+  );
+  for (const clip of animations) {
+    assert.equal(clip.markers?.length ?? 0, 0, `${clip.name} must have no FX/sound markers`);
+  }
+
+  const report = validateModelForRoblox(guppy.model);
+  assert.equal(report.effectCount, 0);
+  assert.equal(report.soundCount, 0);
+  assert.equal(report.markerCount, 0);
+  assert.equal(report.scriptCount, 0);
+  assert.equal(report.rbxmxReady, true);
+  assert.ok(report.boundingSizeStuds[1] > 1, 'Bubble Guppy height must exceed 1 stud');
+
+  const xml = generateRbxmx(guppy.model, { scaleMode: 'studs', centerAtOrigin: true });
+  assert.ok(xml.includes('<string name="Name">Idle</string>'));
+  assert.ok(xml.includes('<string name="Name">Bubble Swim</string>'));
+  assert.ok(xml.includes('<Item class="Motor6D"'));
+});
+
 
 

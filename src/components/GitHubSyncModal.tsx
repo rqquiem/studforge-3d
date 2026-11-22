@@ -15,9 +15,13 @@ import {
   UploadCloud,
   X,
 } from 'lucide-react';
+import { generateMapRojoBundle } from '../engine/mapExporter';
+import { StudioMapScene } from '../engine/mapTypes';
 import { sanitizeIdentifier } from '../engine/robloxExporter';
 import { generateRojoProjectBundle, SyncFileEntry } from '../engine/rojoPackager';
 import { StudioSceneModel } from '../engine/robloxTypes';
+import { generateWorkspaceRojoBundle, validateWorkspaceForRoblox } from '../engine/workspaceStore';
+import { StudioWorkspace } from '../engine/workspaceTypes';
 
 interface GitHubUser {
   login: string;
@@ -43,6 +47,9 @@ export interface GitHubAuthMemoryState {
 
 interface GitHubSyncModalProps {
   model: StudioSceneModel;
+  map?: StudioMapScene;
+  workspace?: StudioWorkspace;
+  defaultScope?: 'model' | 'map' | 'workspace';
   authState: GitHubAuthMemoryState;
   onChangeAuthState: (next: GitHubAuthMemoryState) => void;
   onClose: () => void;
@@ -50,14 +57,46 @@ interface GitHubSyncModalProps {
 
 export function GitHubSyncModal({
   model,
+  map,
+  workspace,
+  defaultScope = 'model',
   authState,
   onChangeAuthState,
   onClose,
 }: GitHubSyncModalProps) {
-  const safeSlug = useMemo(
+  const [syncScope, setSyncScope] = useState<'model' | 'map' | 'workspace'>(() => {
+    if (workspace && defaultScope === 'workspace') return 'workspace';
+    if (map && defaultScope === 'map') return 'map';
+    return 'model';
+  });
+
+  const safeModelSlug = useMemo(
     () => sanitizeIdentifier(model.name).replace(/\s+/g, '_') || 'RobloxModel',
     [model.name]
   );
+  const safeMapSlug = useMemo(
+    () => (map ? sanitizeIdentifier(map.name).replace(/\s+/g, '_') || 'RobloxMap' : 'RobloxMap'),
+    [map]
+  );
+  const safeWorkspaceSlug = useMemo(
+    () =>
+      workspace
+        ? sanitizeIdentifier(workspace.name).replace(/\s+/g, '_') || 'RobloxWorkspace'
+        : 'RobloxWorkspace',
+    [workspace]
+  );
+  const safeSlug =
+    syncScope === 'workspace'
+      ? safeWorkspaceSlug
+      : syncScope === 'map'
+      ? safeMapSlug
+      : safeModelSlug;
+  const targetTitle =
+    syncScope === 'workspace' && workspace
+      ? workspace.name
+      : syncScope === 'map' && map
+      ? map.name
+      : model.name;
 
   // OAuth server config
   const [oauthConfigured, setOauthConfigured] = useState(false);
@@ -71,15 +110,25 @@ export function GitHubSyncModal({
   const [branchInput, setBranchInput] = useState('main');
   const [basePathInput, setBasePathInput] = useState(`roblox/${safeSlug}`);
   const [commitMessage, setCommitMessage] = useState(
-    `feat(roblox): sync ${safeSlug} model, scripts, and Rojo config`
+    syncScope === 'workspace'
+      ? `feat(roblox): sync ${safeSlug} multi-folder workspace, scripts, models, and maps`
+      : syncScope === 'map'
+      ? `feat(roblox): sync ${safeSlug} full .rbxlx map, scripts, and Rojo config`
+      : `feat(roblox): sync ${safeSlug} model, scripts, and Rojo config`
   );
 
-  // Bundle options
+  // Bundle options (Model)
   const [includeRbxmx, setIncludeRbxmx] = useState(true);
   const [includeRojoScripts, setIncludeRojoScripts] = useState(true);
   const [includeObjMtl, setIncludeObjMtl] = useState(true);
   const [includeGlb, setIncludeGlb] = useState(false);
   const [includeStudforgeJson, setIncludeStudforgeJson] = useState(true);
+
+  // Bundle options (Map)
+  const [includeMapRbxlx, setIncludeMapRbxlx] = useState(true);
+  const [includeMapRojoScripts, setIncludeMapRojoScripts] = useState(true);
+  const [includeStampedRbxmx, setIncludeStampedRbxmx] = useState(true);
+  const [includeStudforgeMapJson, setIncludeStudforgeMapJson] = useState(true);
 
   const [bundleFiles, setBundleFiles] = useState<SyncFileEntry[]>([]);
   const [buildingBundle, setBuildingBundle] = useState(false);
@@ -124,10 +173,55 @@ export function GitHubSyncModal({
       .catch(() => {});
   }, []);
 
-  // Build Rojo + Asset file manifest whenever model/options change
+  // Build Rojo + Asset file manifest whenever workspace/model/map/options change
   useEffect(() => {
     let cancelled = false;
     setBuildingBundle(true);
+    if (syncScope === 'workspace' && workspace) {
+      Promise.resolve()
+        .then(() => generateWorkspaceRojoBundle(workspace))
+        .then((files) => {
+          if (!cancelled) setBundleFiles(files);
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setErrorMsg(err instanceof Error ? err.message : 'Failed to package workspace bundle');
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setBuildingBundle(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (syncScope === 'map' && map) {
+      Promise.resolve()
+        .then(() =>
+          generateMapRojoBundle(map, {
+            includeRbxlx: includeMapRbxlx,
+            includeRojoScripts: includeMapRojoScripts,
+            includeStampedRbxmx,
+            includeStudforgeMapJson,
+          })
+        )
+        .then((files) => {
+          if (!cancelled) setBundleFiles(files);
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setErrorMsg(err instanceof Error ? err.message : 'Failed to package map bundle');
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setBuildingBundle(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     generateRojoProjectBundle(model, {
       includeRbxmx,
       includeRojoScripts,
@@ -150,13 +244,25 @@ export function GitHubSyncModal({
       cancelled = true;
     };
   }, [
+    syncScope,
+    workspace,
+    map,
     model,
     includeRbxmx,
     includeRojoScripts,
     includeObjMtl,
     includeGlb,
     includeStudforgeJson,
+    includeMapRbxlx,
+    includeMapRojoScripts,
+    includeStampedRbxmx,
+    includeStudforgeMapJson,
   ]);
+
+  const workspaceSummary = useMemo(
+    () => (workspace ? validateWorkspaceForRoblox(workspace) : null),
+    [workspace]
+  );
 
   const loadRepositories = useCallback(async () => {
     const headers = buildAuthHeaders();
@@ -382,23 +488,93 @@ export function GitHubSyncModal({
     >
       <div className="w-full max-w-4xl bg-[#151821] border border-white/12 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Modal Header */}
-        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 id="github-sync-title" className="text-base font-semibold text-white">
               Sync &amp; Push to GitHub / Rojo Workspace
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              {model.name} · {bundleFiles.length} bundle file{bundleFiles.length === 1 ? '' : 's'} (Model, Service Scripts, Rojo &amp; Meshes)
+              {targetTitle} · {bundleFiles.length} bundle file{bundleFiles.length === 1 ? '' : 's'}{' '}
+              {syncScope === 'workspace'
+                ? '(All Custom Folders, Scripts, .rbxmx Models, .rbxlx Place & Rojo 7)'
+                : syncScope === 'map'
+                ? '(.rbxlx Place, Full Service Scripts, Rojo 7 & Stamped Rigs)'
+                : '(Model, Service Scripts, Rojo & Meshes)'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close GitHub Sync modal"
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-2">
+            {(map || workspace) && (
+              <div className="inline-flex bg-[#0e1015] border border-white/10 rounded-lg p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSyncScope('model');
+                    setBasePathInput(`roblox/${safeModelSlug}`);
+                    setCommitMessage(`feat(roblox): sync ${safeModelSlug} model, scripts, and Rojo config`);
+                    setWorkspaceResult(null);
+                    setPushResult(null);
+                  }}
+                  className={`px-2.5 py-1 rounded-md font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    syncScope === 'model'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  Model Bundle
+                </button>
+                {map && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSyncScope('map');
+                      setBasePathInput(`roblox/${safeMapSlug}`);
+                      setCommitMessage(
+                        `feat(roblox): sync ${safeMapSlug} full .rbxlx map, scripts, and Rojo config`
+                      );
+                      setWorkspaceResult(null);
+                      setPushResult(null);
+                    }}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                      syncScope === 'map'
+                        ? 'bg-emerald-600 text-white'
+                        : 'text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    Full Map Bundle
+                  </button>
+                )}
+                {workspace && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSyncScope('workspace');
+                      setBasePathInput(`roblox/${safeWorkspaceSlug}`);
+                      setCommitMessage(
+                        `feat(roblox): sync ${safeWorkspaceSlug} multi-folder workspace, scripts, models, and maps`
+                      );
+                      setWorkspaceResult(null);
+                      setPushResult(null);
+                    }}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                      syncScope === 'workspace'
+                        ? 'bg-violet-600 text-white'
+                        : 'text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    Workspace Bundle
+                  </button>
+                )}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close GitHub Sync modal"
+              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto studio-scroll p-5 space-y-4">
@@ -412,7 +588,10 @@ export function GitHubSyncModal({
               <p className="text-[11px] text-slate-400 mt-0.5">
                 Writes <code className="font-mono-tabular text-slate-200">default.project.json</code>,{' '}
                 <code className="font-mono-tabular text-slate-200">.luau</code> scripts,{' '}
-                <code className="font-mono-tabular text-slate-200">.rbxmx</code>, and mesh assets into{' '}
+                <code className="font-mono-tabular text-slate-200">
+                  {syncScope === 'map' ? '.rbxlx + .rbxmx' : '.rbxmx + meshes'}
+                </code>{' '}
+                into{' '}
                 <code className="font-mono-tabular text-emerald-300">roblox-workspace/{safeSlug}/</code>.
               </p>
             </div>
@@ -650,53 +829,109 @@ export function GitHubSyncModal({
             {/* Right: Bundle Options & File Manifest */}
             <div className="bg-[#0e1015] border border-white/10 rounded-lg p-3.5 flex flex-col space-y-3 min-h-[260px]">
               <div className="text-xs font-semibold text-white">Included Bundle Artifacts</div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includeRbxmx}
-                    onChange={(e) => setIncludeRbxmx(e.target.checked)}
-                    className="accent-blue-500"
-                  />
-                  <span>.rbxmx Package</span>
-                </label>
-                <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includeRojoScripts}
-                    onChange={(e) => setIncludeRojoScripts(e.target.checked)}
-                    className="accent-blue-500"
-                  />
-                  <span>Rojo + .luau Scripts</span>
-                </label>
-                <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includeObjMtl}
-                    onChange={(e) => setIncludeObjMtl(e.target.checked)}
-                    className="accent-blue-500"
-                  />
-                  <span>.obj + .mtl Mesh</span>
-                </label>
-                <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includeGlb}
-                    onChange={(e) => setIncludeGlb(e.target.checked)}
-                    className="accent-blue-500"
-                  />
-                  <span>.glb Rigged 3D</span>
-                </label>
-                <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer col-span-2">
-                  <input
-                    type="checkbox"
-                    checked={includeStudforgeJson}
-                    onChange={(e) => setIncludeStudforgeJson(e.target.checked)}
-                    className="accent-blue-500"
-                  />
-                  <span>.studforge.json Project Snapshot</span>
-                </label>
-              </div>
+              {syncScope === 'workspace' && workspaceSummary ? (
+                <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 font-mono-tabular">
+                  <div className="bg-[#151821] border border-white/10 rounded px-2.5 py-1.5">
+                    {workspaceSummary.folderCount} Custom Folders
+                  </div>
+                  <div className="bg-[#151821] border border-white/10 rounded px-2.5 py-1.5">
+                    {workspaceSummary.modelCount} Rigged Models (.rbxmx)
+                  </div>
+                  <div className="bg-[#151821] border border-white/10 rounded px-2.5 py-1.5">
+                    {workspaceSummary.mapCount} Maps + Place (.rbxlx)
+                  </div>
+                  <div className="bg-[#151821] border border-white/10 rounded px-2.5 py-1.5">
+                    {workspaceSummary.scriptCount} Luau Scripts (Rojo 7)
+                  </div>
+                </div>
+              ) : syncScope === 'map' ? (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeMapRbxlx}
+                      onChange={(e) => setIncludeMapRbxlx(e.target.checked)}
+                      className="accent-emerald-500"
+                    />
+                    <span>Full .rbxlx Place</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeMapRojoScripts}
+                      onChange={(e) => setIncludeMapRojoScripts(e.target.checked)}
+                      className="accent-emerald-500"
+                    />
+                    <span>Rojo + 9 .luau Scripts</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeStampedRbxmx}
+                      onChange={(e) => setIncludeStampedRbxmx(e.target.checked)}
+                      className="accent-emerald-500"
+                    />
+                    <span>Stamped .rbxmx Rigs</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeStudforgeMapJson}
+                      onChange={(e) => setIncludeStudforgeMapJson(e.target.checked)}
+                      className="accent-emerald-500"
+                    />
+                    <span>.studforge-map.json</span>
+                  </label>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeRbxmx}
+                      onChange={(e) => setIncludeRbxmx(e.target.checked)}
+                      className="accent-blue-500"
+                    />
+                    <span>.rbxmx Package</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeRojoScripts}
+                      onChange={(e) => setIncludeRojoScripts(e.target.checked)}
+                      className="accent-blue-500"
+                    />
+                    <span>Rojo + .luau Scripts</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeObjMtl}
+                      onChange={(e) => setIncludeObjMtl(e.target.checked)}
+                      className="accent-blue-500"
+                    />
+                    <span>.obj + .mtl Mesh</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeGlb}
+                      onChange={(e) => setIncludeGlb(e.target.checked)}
+                      className="accent-blue-500"
+                    />
+                    <span>.glb Rigged 3D</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 text-slate-200 cursor-pointer col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={includeStudforgeJson}
+                      onChange={(e) => setIncludeStudforgeJson(e.target.checked)}
+                      className="accent-blue-500"
+                    />
+                    <span>.studforge.json Project Snapshot</span>
+                  </label>
+                </div>
+              )}
 
               <div className="flex-1 min-h-0 flex flex-col border-t border-white/10 pt-2">
                 <div className="text-[11px] font-medium text-slate-400 mb-1.5 flex items-center justify-between">

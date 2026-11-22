@@ -6,6 +6,10 @@ import {
   StudioSceneModel,
 } from './robloxTypes';
 import { jadeDragonPreset } from './dragonPreset';
+import { puddleCrabPreset } from './puddleCrabPreset';
+import { puddleSnailPreset } from './puddleSnailPreset';
+import { soggyTadpolePreset } from './soggyTadpolePreset';
+import { bubbleGuppyPreset } from './bubbleGuppyPreset';
 
 export interface ModelPreset {
   id: string;
@@ -593,6 +597,10 @@ const speederHoverClip: AnimationClip = {
 
 export const MODEL_PRESETS: ModelPreset[] = [
   jadeDragonPreset,
+  puddleCrabPreset,
+  puddleSnailPreset,
+  soggyTadpolePreset,
+  bubbleGuppyPreset,
   {
     id: 'orbital-beacon',
     label: 'Orbital Relay Beacon',
