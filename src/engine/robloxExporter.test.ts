@@ -14,6 +14,7 @@ import {
   validateModelForRoblox,
 } from './robloxExporter';
 import { exportModelToGlb } from './glbExporter';
+import { evaluateClipAtTime, solveWorldTransforms } from './animationEngine';
 import { MODEL_PRESETS } from './presets';
 import { StudioPartNode, StudioSceneModel } from './robloxTypes';
 
@@ -839,6 +840,421 @@ test('Bubble Guppy preset has pure 3D rig anatomy, Idle + Bubble Swim animations
   assert.ok(xml.includes('<string name="Name">Bubble Swim</string>'));
   assert.ok(xml.includes('<Item class="Motor6D"'));
 });
+
+test('Driftwood Newt preset has pure 3D rig anatomy, grounded feet, Idle + Driftwood Walk animations, and exports to RBXMX', () => {
+  assert.equal(MODEL_PRESETS[0].id, 'jade-dragon');
+  const newt = MODEL_PRESETS.find((p) => p.id === 'driftwood-newt');
+  assert.ok(newt, 'driftwood-newt preset should exist in MODEL_PRESETS');
+  assert.equal(newt.label, 'Driftwood Newt');
+  assert.equal(newt.model.name, 'DriftwoodNewt');
+  assert.deepEqual(newt.model.scripts, [], 'Driftwood Newt must have empty scripts array (pure 3D rig)');
+
+  const partNames = new Set(newt.model.parts.map((p) => p.name));
+  const expectedAnatomy = [
+    'TorsoCore',
+    'UnderbellyPlate',
+    'KnotCore_L',
+    'KnotCore_R',
+    'DorsalRidge_Mid',
+    'TorsoMoss_FrontL',
+    'MushroomLarge_Cap',
+    'MushroomLarge_Spot1',
+    'MushroomMid_Cap',
+    'MushroomSmall_Cap',
+    'NeckCollar',
+    'HeadCore',
+    'SnoutBlock',
+    'Nostril_L',
+    'Nostril_R',
+    'MouthSlit',
+    'EyeBrow_L',
+    'EyePupil_L',
+    'EyeSclera_L',
+    'HeadSprout_L',
+    'HeadSprout_R',
+    'LegUpper_FL',
+    'LegLower_FL',
+    'FootHub_FL',
+    'ToeMid_FL',
+    'LegUpper_FR',
+    'LegUpper_BL',
+    'LegUpper_BR',
+    'TailBase',
+    'TailMid',
+    'TailTwig_Base',
+    'TailTwig_Fork',
+    'TailTip',
+    'TailSplinter_Point',
+  ];
+  for (const name of expectedAnatomy) {
+    assert.ok(partNames.has(name), `Driftwood Newt should include ${name}`);
+  }
+
+  for (const part of newt.model.parts) {
+    assert.equal(part.effects?.length ?? 0, 0, `${part.name} must not contain FX`);
+    assert.equal(part.sounds?.length ?? 0, 0, `${part.name} must not contain sounds`);
+  }
+
+  // Verify all 4 feet hubs rest cleanly near ground plane (y = 0)
+  const solved = solveWorldTransforms(newt.model.parts);
+  for (const footId of ['dn_foot_fl', 'dn_foot_fr', 'dn_foot_bl', 'dn_foot_br']) {
+    const tr = solved.get(footId);
+    assert.ok(tr, `${footId} should exist in solved world transforms`);
+    const bottomY = tr.worldPosition[1] - tr.size[1] / 2;
+    assert.ok(
+      bottomY >= -0.08 && bottomY <= 0.08,
+      `${footId} bottomY (${bottomY.toFixed(3)}) should sit cleanly near y = 0`
+    );
+  }
+
+  const animations = newt.model.animations ?? [];
+  assert.deepEqual(
+    animations.map((c) => c.name),
+    ['Idle', 'Driftwood Walk']
+  );
+  for (const clip of animations) {
+    assert.equal(clip.markers?.length ?? 0, 0, `${clip.name} must have no FX/sound markers`);
+    const midPose = evaluateClipAtTime(newt.model, clip, clip.duration * 0.25);
+    assert.ok(midPose['dn_torso'], `${clip.name} should evaluate dn_torso pose`);
+    assert.ok(midPose['dn_tail_2'], `${clip.name} should evaluate dn_tail_2 pose`);
+  }
+
+  const report = validateModelForRoblox(newt.model);
+  assert.equal(report.effectCount, 0);
+  assert.equal(report.soundCount, 0);
+  assert.equal(report.markerCount, 0);
+  assert.equal(report.scriptCount, 0);
+  assert.equal(report.rbxmxReady, true);
+  assert.ok(report.boundingSizeStuds[1] > 1, 'Driftwood Newt height must exceed 1 stud');
+
+  const xml = generateRbxmx(newt.model, { scaleMode: 'studs', centerAtOrigin: true });
+  assert.ok(xml.includes('<string name="Name">Idle</string>'));
+  assert.ok(xml.includes('<string name="Name">Driftwood Walk</string>'));
+  assert.ok(xml.includes('<Item class="Motor6D"'));
+});
+
+test('Clam Snapper preset has pure 3D rig anatomy, grounded feet, Idle + Snap Walk animations, and exports to RBXMX', () => {
+  assert.equal(MODEL_PRESETS[0].id, 'jade-dragon');
+  const clam = MODEL_PRESETS.find((p) => p.id === 'clam-snapper');
+  assert.ok(clam, 'clam-snapper preset should exist in MODEL_PRESETS');
+  assert.equal(clam.label, 'Clam Snapper');
+  assert.equal(clam.model.name, 'ClamSnapper');
+  assert.deepEqual(clam.model.scripts, [], 'Clam Snapper must have empty scripts array (pure 3D rig)');
+
+  const partNames = new Set(clam.model.parts.map((p) => p.name));
+  const expectedAnatomy = [
+    'LowerShellCore',
+    'LowerCavityFloor',
+    'LowerRib_FrontMid',
+    'LowerTooth_L1',
+    'LowerTooth_R1',
+    'ShellHingeBlock',
+    'ShellHingeSocket',
+    'LegUpper_FL',
+    'FootHub_FL',
+    'ToeMid_FL',
+    'LegUpper_FR',
+    'LegUpper_BL',
+    'LegUpper_BR',
+    'ClamHead',
+    'ClamEyePupil_L',
+    'ClamEyeSclera_L',
+    'ClamEyePupil_R',
+    'ClamMouthSlit',
+    'ClamTongue',
+    'ClamPearl',
+    'UpperShellLid',
+    'UpperDomeCrest',
+    'UpperRib_FrontMid',
+    'UpperTooth_L1',
+    'UpperTooth_R1',
+  ];
+  for (const name of expectedAnatomy) {
+    assert.ok(partNames.has(name), `Clam Snapper should include ${name}`);
+  }
+
+  for (const part of clam.model.parts) {
+    assert.equal(part.effects?.length ?? 0, 0, `${part.name} must not contain FX`);
+    assert.equal(part.sounds?.length ?? 0, 0, `${part.name} must not contain sounds`);
+  }
+
+  // Verify all 4 feet hubs rest cleanly near ground plane (y = 0)
+  const solved = solveWorldTransforms(clam.model.parts);
+  for (const footId of ['cs_foot_fl', 'cs_foot_fr', 'cs_foot_bl', 'cs_foot_br']) {
+    const tr = solved.get(footId);
+    assert.ok(tr, `${footId} should exist in solved world transforms`);
+    const bottomY = tr.worldPosition[1] - tr.size[1] / 2;
+    assert.ok(
+      bottomY >= -0.08 && bottomY <= 0.08,
+      `${footId} bottomY (${bottomY.toFixed(3)}) should sit cleanly near y = 0`
+    );
+  }
+
+  const animations = clam.model.animations ?? [];
+  assert.deepEqual(
+    animations.map((c) => c.name),
+    ['Idle', 'Snap Walk']
+  );
+  for (const clip of animations) {
+    assert.equal(clip.markers?.length ?? 0, 0, `${clip.name} must have no FX/sound markers`);
+    const midPose = evaluateClipAtTime(clam.model, clip, clip.duration * 0.5);
+    assert.ok(midPose['cs_lower_shell'], `${clip.name} should evaluate cs_lower_shell pose`);
+    assert.ok(midPose['cs_upper_shell'], `${clip.name} should evaluate cs_upper_shell pose`);
+  }
+
+  const report = validateModelForRoblox(clam.model);
+  assert.equal(report.effectCount, 0);
+  assert.equal(report.soundCount, 0);
+  assert.equal(report.markerCount, 0);
+  assert.equal(report.scriptCount, 0);
+  assert.equal(report.rbxmxReady, true);
+  assert.ok(report.boundingSizeStuds[1] > 1, 'Clam Snapper height must exceed 1 stud');
+
+  const xml = generateRbxmx(clam.model, { scaleMode: 'studs', centerAtOrigin: true });
+  assert.ok(xml.includes('<string name="Name">Idle</string>'));
+  assert.ok(xml.includes('<string name="Name">Snap Walk</string>'));
+  assert.ok(xml.includes('<Item class="Motor6D"'));
+});
+
+test('Kelp Hermit preset has teacup/kelp/crab anatomy, grounded 6 legs, 4 animation clips, startled retract pose, and exports to RBXMX', () => {
+  assert.equal(MODEL_PRESETS[0].id, 'jade-dragon');
+  const hermit = MODEL_PRESETS.find((p) => p.id === 'kelp-hermit');
+  assert.ok(hermit, 'kelp-hermit preset should exist in MODEL_PRESETS');
+  assert.equal(hermit.label, 'Kelp Hermit');
+  assert.equal(hermit.model.name, 'KelpHermit');
+  assert.equal(hermit.model.scripts?.length, 6, 'Kelp Hermit should include 6 authored Luau behavior scripts/remotes');
+
+  const partNames = new Set(hermit.model.parts.map((p) => p.name));
+  const expectedAnatomy = [
+    'CrabCarapace',
+    'EyeStalk_L',
+    'EyeStalk_R',
+    'ClawPalm_L',
+    'ClawPalm_R',
+    'LegTip_L1',
+    'LegTip_L2',
+    'LegTip_L3',
+    'LegTip_R1',
+    'LegTip_R2',
+    'LegTip_R3',
+    'TeacupShell',
+    'CupHandle_Outer',
+    'CupFootRing',
+    'CupBlueMotifH_Top',
+    'KelpFrontLip',
+    'KelpCrown_A',
+    'KelpRearDrop_1',
+  ];
+  for (const name of expectedAnatomy) {
+    assert.ok(partNames.has(name), `Kelp Hermit should include ${name}`);
+  }
+
+  for (const part of hermit.model.parts) {
+    assert.equal(part.effects?.length ?? 0, 0, `${part.name} must not contain FX`);
+    assert.equal(part.sounds?.length ?? 0, 0, `${part.name} must not contain sounds`);
+  }
+
+  // Verify all 6 leg tips rest cleanly near ground plane (y = 0)
+  const solved = solveWorldTransforms(hermit.model.parts);
+  for (const tipId of ['kh_tip_l1', 'kh_tip_l2', 'kh_tip_l3', 'kh_tip_r1', 'kh_tip_r2', 'kh_tip_r3']) {
+    const tr = solved.get(tipId);
+    assert.ok(tr, `${tipId} should exist in solved world transforms`);
+    const bottomY = tr.worldPosition[1] - tr.size[1] / 2;
+    assert.ok(
+      bottomY >= -0.08 && bottomY <= 0.08,
+      `${tipId} bottomY (${bottomY.toFixed(3)}) should sit cleanly near y = 0`
+    );
+  }
+
+  const animations = hermit.model.animations ?? [];
+  assert.deepEqual(
+    animations.map((c) => c.name),
+    ['Idle', 'Waddle Walk', 'Turn Wobble', 'Startled Retract']
+  );
+  for (const clip of animations) {
+    assert.equal(clip.markers?.length ?? 0, 0, `${clip.name} must have no FX/sound markers`);
+    const midPose = evaluateClipAtTime(hermit.model, clip, clip.duration * 0.25);
+    assert.ok(midPose['kh_body'], `${clip.name} should evaluate kh_body pose`);
+    assert.ok(midPose['kh_cup'], `${clip.name} should evaluate kh_cup pose`);
+  }
+
+  // Verify Startled Retract mid-pose drops teacup flat (rx = 0), rests flush near y = 0, and tucks all crab parts cleanly inside the compact cup
+  const startleClip = animations.find((c) => c.name === 'Startled Retract')!;
+  const startleMid = evaluateClipAtTime(hermit.model, startleClip, 1.0);
+  assert.ok(Math.abs(startleMid['kh_cup'].rotation[0]) < 0.5, 'Startled teacup should drop flat to ground (rx ≈ 0)');
+  assert.ok(startleMid['kh_body'].position[2] < 0, 'Startled crab body should snap backward inside the teacup');
+
+  // Verify compact teacup proportions (shorter barrel <= 1.6 studs & tighter wall apothem)
+  const topWall = hermit.model.parts.find((p) => p.id === 'kh_cup_w_Top')!;
+  assert.ok(topWall.size[2] <= 1.6, `Compact teacup barrel length (${topWall.size[2]}) should be <= 1.6 studs`);
+  assert.ok(topWall.position[1] <= 0.95, `Compact teacup wall apothem (${topWall.position[1]}) should be <= 0.95 studs`);
+
+  // Verify Startled Retract settled pose (t = 2.45s) puts CupWall_Bottom flush on y = 0 and all crab parts inside the compact cup
+  const settledPose = evaluateClipAtTime(hermit.model, startleClip, 2.45);
+  const settledSolved = solveWorldTransforms(hermit.model.parts, settledPose);
+  const settledCup = settledSolved.get('kh_cup')!;
+  const cupBottom = settledSolved.get('kh_cup_w_Bottom')!;
+  const cupBottomY = cupBottom.worldPosition[1] - cupBottom.size[1] / 2;
+  assert.ok(
+    cupBottomY >= -0.05 && cupBottomY <= 0.05,
+    `Retracted CupWall_Bottom bottomY (${cupBottomY.toFixed(3)}) should sit flush on y = 0`
+  );
+
+  // Check every visible crab part's world center & radial extent stays inside compact cup bounds
+  const cupZ = settledCup.worldPosition[2];
+  const cupY = settledCup.worldPosition[1];
+  for (const part of hermit.model.parts) {
+    if (part.id.startsWith('kh_cup') || part.id.startsWith('kh_handle') || part.id.startsWith('kh_kelp')) {
+      continue;
+    }
+    const tr = settledSolved.get(part.id)!;
+    const relZ = tr.worldPosition[2] - cupZ;
+    const relY = tr.worldPosition[1] - cupY;
+    const radial = Math.hypot(tr.worldPosition[0], relY);
+    assert.ok(
+      relZ >= -0.7 && relZ <= 0.78,
+      `Retracted crab part ${part.name} relZ (${relZ.toFixed(3)}) must stay inside cup Z [-0.70, +0.78]`
+    );
+    assert.ok(
+      radial <= 0.85,
+      `Retracted crab part ${part.name} radial (${radial.toFixed(3)}) must stay inside cup inner radius (<= 0.85)`
+    );
+  }
+
+  const report = validateModelForRoblox(hermit.model);
+  assert.equal(report.effectCount, 0);
+  assert.equal(report.soundCount, 0);
+  assert.equal(report.markerCount, 0);
+  assert.equal(report.scriptCount, 6);
+  assert.equal(report.rbxmxReady, true);
+  assert.ok(report.boundingSizeStuds[1] > 1, 'Kelp Hermit height must exceed 1 stud');
+
+  const xml = generateRbxmx(hermit.model, { scaleMode: 'studs', centerAtOrigin: true });
+  for (const stageName of ['Idle', 'Waddle Walk', 'Turn Wobble', 'Startled Retract']) {
+    assert.ok(xml.includes(`<string name="Name">${stageName}</string>`));
+  }
+  assert.ok(xml.includes('<Item class="Motor6D"'));
+  assert.ok(xml.includes('<string name="Name">KelpHermitServer</string>'));
+  assert.ok(xml.includes('<string name="Name">StartleEvent</string>'));
+});
+
+test('Zrest Autocannon preset has quad-barrel turret anatomy, grounded plinth, 3 animation clips, and exports to RBXMX', () => {
+  assert.equal(MODEL_PRESETS[0].id, 'jade-dragon');
+  const turret = MODEL_PRESETS.find((p) => p.id === 'zrest-autocannon');
+  assert.ok(turret, 'zrest-autocannon preset should exist in MODEL_PRESETS');
+  assert.equal(turret.label, 'Zrest Autocannon');
+  assert.equal(turret.model.name, 'ZrestAutocannon');
+  assert.deepEqual(turret.model.scripts, [], 'Zrest Autocannon must have empty scripts array (pure 3D rig)');
+
+  const partNames = new Set(turret.model.parts.map((p) => p.name));
+  const expectedAnatomy = [
+    'BasePlinth',
+    'TurretYawRing',
+    'TurretChassis',
+    'SponsonCheekSlope_L',
+    'SponsonCheekSlope_R',
+    'CheekSensorPod',
+    'CheekSensorLens',
+    'SideAmmoPack_R',
+    'AmmoBeltShell_1',
+    'LowerAmmoCrate_R',
+    'RearBustleCore',
+    'RearVentPack_L',
+    'RearVentPack_R',
+    'RearPowerCable_L',
+    'RoofOptic_L',
+    'RoofOptic_R',
+    'GunPodPitchPivot',
+    'TrunnionDrum_L',
+    'TrunnionDrum_R',
+    'CoaxialOpticTube',
+    'BarrelRecoil_UL',
+    'BarrelRecoil_UR',
+    'BarrelRecoil_LL',
+    'BarrelRecoil_LR',
+    'MuzzleBrake_UL',
+    'MuzzleBrake_LR',
+  ];
+  for (const name of expectedAnatomy) {
+    assert.ok(partNames.has(name), `Zrest Autocannon should include ${name}`);
+  }
+
+  for (const part of turret.model.parts) {
+    assert.equal(part.effects?.length ?? 0, 0, `${part.name} must not contain FX`);
+    assert.equal(part.sounds?.length ?? 0, 0, `${part.name} must not contain sounds`);
+  }
+
+  // Verify BasePlinth sits cleanly on y = 0 and roof optic sub-parts stay attached to their housings
+  const solved = solveWorldTransforms(turret.model.parts);
+  const baseTr = solved.get('za_base')!;
+  const baseBottomY = baseTr.worldPosition[1] - baseTr.size[1] / 2;
+  assert.ok(
+    baseBottomY >= -0.02 && baseBottomY <= 0.02,
+    `BasePlinth bottomY (${baseBottomY.toFixed(3)}) should sit cleanly on y = 0`
+  );
+
+  const opticPairs: Array<[string, string]> = [
+    ['za_optic_r', 'za_optic_r_screen'],
+    ['za_optic_r', 'za_optic_r_glass'],
+    ['za_optic_l', 'za_optic_l_bezel'],
+    ['za_optic_l', 'za_optic_l_lens'],
+  ];
+  for (const [parentId, childId] of opticPairs) {
+    const pTr = solved.get(parentId)!;
+    const cTr = solved.get(childId)!;
+    const dist = Math.hypot(
+      cTr.worldPosition[0] - pTr.worldPosition[0],
+      cTr.worldPosition[1] - pTr.worldPosition[1],
+      cTr.worldPosition[2] - pTr.worldPosition[2]
+    );
+    assert.ok(
+      dist <= 0.4,
+      `${childId} (${dist.toFixed(3)} studs from ${parentId}) must remain attached to its parent housing`
+    );
+    assert.ok(
+      cTr.worldPosition[1] <= 2.8,
+      `${childId} worldY (${cTr.worldPosition[1].toFixed(3)}) must not float above turret roof`
+    );
+  }
+
+  const animations = turret.model.animations ?? [];
+  assert.deepEqual(
+    animations.map((c) => c.name),
+    ['Idle', 'Sentry Scan', 'Autocannon Burst']
+  );
+  for (const clip of animations) {
+    assert.equal(clip.markers?.length ?? 0, 0, `${clip.name} must have no FX/sound markers`);
+    const midPose = evaluateClipAtTime(turret.model, clip, clip.duration * 0.25);
+    assert.ok(midPose['za_yaw'], `${clip.name} should evaluate za_yaw pose`);
+    assert.ok(midPose['za_gun_pitch'], `${clip.name} should evaluate za_gun_pitch pose`);
+  }
+
+  // Verify Autocannon Burst produces barrel recoil displacement
+  const burstClip = animations.find((c) => c.name === 'Autocannon Burst')!;
+  const ulRecoilPose = evaluateClipAtTime(turret.model, burstClip, 0.13);
+  assert.ok(
+    ulRecoilPose['za_barrel_ul'].position[2] < 0.78 - 0.15,
+    'Autocannon Burst should kick BarrelRecoil_UL backward along Z'
+  );
+
+  const report = validateModelForRoblox(turret.model);
+  assert.equal(report.effectCount, 0);
+  assert.equal(report.soundCount, 0);
+  assert.equal(report.markerCount, 0);
+  assert.equal(report.scriptCount, 0);
+  assert.equal(report.rbxmxReady, true);
+  assert.ok(report.totalTriangles < 10000, `Zrest Autocannon tris (${report.totalTriangles}) must stay < 10000`);
+  assert.ok(report.boundingSizeStuds[1] > 1, 'Zrest Autocannon height must exceed 1 stud');
+
+  const xml = generateRbxmx(turret.model, { scaleMode: 'studs', centerAtOrigin: true });
+  for (const stageName of ['Idle', 'Sentry Scan', 'Autocannon Burst']) {
+    assert.ok(xml.includes(`<string name="Name">${stageName}</string>`));
+  }
+  assert.ok(xml.includes('<Item class="Motor6D"'));
+});
+
+
+
 
 
 

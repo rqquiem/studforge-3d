@@ -598,6 +598,7 @@ end
 local function makeChildParentMt(rawObj)
   return setmetatable(rawObj, {
     __index = function(t, k)
+      if k == "Parent" then return rawget(t, "_parentRef") end
       if k == "Value" and t._value ~= nil then return t._value end
       if k == "Enabled" and t._enabled ~= nil then return t._enabled end
       if k == "Brightness" and t._brightness ~= nil then return t._brightness end

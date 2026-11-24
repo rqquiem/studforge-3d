@@ -205,3 +205,56 @@ test('workspaceConfinement prevents path traversal and resolves confined workspa
   );
   assert.throws(() => sanitizeGitRepoSubpath('roblox', '../secret'), /Invalid/);
 });
+
+test('RobloxSandboxRunner executes Kelp Hermit behavior scripts cleanly across Waddle, Turn [E], Startle [F], and Idle/Waddle [R]', () => {
+  const hermit = MODEL_PRESETS.find((p) => p.id === 'kelp-hermit')!.model;
+  const scripts = hermit.scripts ?? [];
+  assert.equal(scripts.length, 6);
+
+  const logs: SandboxLogEntry[] = [];
+  let latestUpdate: SandboxRuntimeUpdate | null = null;
+  const getUpdate = () => latestUpdate;
+
+  const runner = new RobloxSandboxRunner(hermit, scripts, {
+    onLog: (entry) => logs.push(entry),
+    onRuntimeUpdate: (u) => {
+      latestUpdate = u;
+    },
+    onEmitParticles: () => {},
+    onPulseLight: () => {},
+  });
+
+  const started = runner.start(false);
+  assert.equal(started, true);
+  assert.equal(
+    logs.some((l) => l.level === 'error'),
+    false,
+    `Expected zero Kelp Hermit boot errors, got: ${JSON.stringify(logs.filter((l) => l.level === 'error'))}`
+  );
+  assert.equal(getUpdate()?.activeStageName, 'Waddle Walk');
+
+  // Trigger E -> Turn Wobble
+  runner.triggerKey('E');
+  assert.equal(getUpdate()?.activeStageName, 'Turn Wobble');
+
+  // Trigger F -> Startled Retract
+  runner.triggerKey('F');
+  assert.equal(getUpdate()?.activeStageName, 'Startled Retract');
+
+  for (let i = 0; i < 6; i++) {
+    runner.step(0.05);
+  }
+  assert.equal(
+    logs.some((l) => l.level === 'error'),
+    false,
+    `Expected zero Kelp Hermit runtime errors, got: ${JSON.stringify(logs.filter((l) => l.level === 'error'))}`
+  );
+  assert.ok(Object.keys(getUpdate()?.poses ?? {}).length > 0, 'Kelp Hermit sandbox should produce Motor6D poses');
+
+  // Trigger R -> toggles to Idle
+  runner.triggerKey('R');
+  assert.equal(getUpdate()?.activeStageName, 'Idle');
+
+  runner.stop(true);
+});
+

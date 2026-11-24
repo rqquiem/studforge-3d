@@ -1285,7 +1285,7 @@ export default function App() {
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
             </button>
             {presetsOpen && (
-              <div className="absolute top-full left-0 mt-2 w-72 bg-[#1a1e29] border border-white/15 rounded-lg shadow-2xl p-1.5 z-40 space-y-1">
+              <div className="absolute top-full left-0 mt-2 w-72 max-h-[75vh] overflow-y-auto studio-scroll bg-[#1a1e29] border border-white/15 rounded-lg shadow-2xl p-1.5 z-40 space-y-1">
                 {MODEL_PRESETS.map((preset) => (
                   <button
                     key={preset.id}

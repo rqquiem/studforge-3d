@@ -10,6 +10,10 @@ import { puddleCrabPreset } from './puddleCrabPreset';
 import { puddleSnailPreset } from './puddleSnailPreset';
 import { soggyTadpolePreset } from './soggyTadpolePreset';
 import { bubbleGuppyPreset } from './bubbleGuppyPreset';
+import { driftwoodNewtPreset } from './driftwoodNewtPreset';
+import { clamSnapperPreset } from './clamSnapperPreset';
+import { kelpHermitPreset } from './kelpHermitPreset';
+import { zrestAutocannonPreset } from './zrestAutocannonPreset';
 
 export interface ModelPreset {
   id: string;
@@ -601,6 +605,10 @@ export const MODEL_PRESETS: ModelPreset[] = [
   puddleSnailPreset,
   soggyTadpolePreset,
   bubbleGuppyPreset,
+  driftwoodNewtPreset,
+  clamSnapperPreset,
+  kelpHermitPreset,
+  zrestAutocannonPreset,
   {
     id: 'orbital-beacon',
     label: 'Orbital Relay Beacon',
